@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard IA: Calendario Editorial ECOGAS 2026</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+    
+    <!-- Chosen Palette: Pantone 7462C (#005596), Pantone 2203C (#008BB0), Pantone 368C (#7AC142), Neutral Light Backgrounds -->
+    <!-- Application Structure Plan: A centralized, interactive dashboard structure designed for marketing teams. 
+         - Top: High-level analytics to visualize KPI distribution and team workload at a glance, replacing raw table data with actionable insights.
+         - Middle: Interactive "Month Explorer" preventing information overload by showing one month at a time. Integrated with Gemini AI buttons for instant copy generation and strategic optimization.
+         - Right/Side: Slide-out Gemini AI assistant for real-time crisis management and FAQ support.
+         - Bottom: Clear role definitions ensuring team alignment. 
+         This structure translates a static markdown table into a dynamic, AI-assisted workspace optimized for task execution and strategic planning. -->
+    <!-- Visualization & Content Choices: 
+         - KPI Distribution -> Doughnut Chart (Chart.js): Shows proportion of strategic goals (Leads vs Awareness) quickly. Doughnut is cleaner than pie. 
+         - Team Workload -> Bar Chart (Chart.js): Compares task volume per owner. 
+         - Content Calendar -> Interactive Tabbed Grid (Tailwind/JS): Replaces long tables, allowing focused view per month. Includes integrated AI prompts.
+         - Confirming NO SVG or Mermaid JS used. Relying strictly on CSS styling, unicode emojis, and Canvas. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        pantone7462C: '#005596',
+                        pantone2203C: '#008BB0',
+                        pantone368C: '#7AC142',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { background-color: #f8fafc; color: #0f172a; overflow-x: hidden; }
+        .chart-container { position: relative; width: 100%; max-width: 500px; margin: 0 auto; height: 300px; max-height: 350px; }
+        @media (min-width: 768px) { .chart-container { height: 320px; } }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(8px); border: 1px solid rgba(226, 232, 240, 0.8); }
+        .ai-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .markdown-content strong { font-weight: 700; color: #005596; }
+        .markdown-content ul { list-style-type: disc; margin-left: 1.5rem; margin-top: 0.5rem; margin-bottom: 0.5rem; }
+        .markdown-content p { margin-bottom: 0.75rem; }
+    </style>
+</head>
+<body class="antialiased flex flex-col min-h-screen">
+
+    <header class="bg-pantone7462C text-white shadow-lg sticky top-0 z-40 border-b-4 border-pantone368C">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="bg-white p-2 rounded-lg shadow-sm">
+                    <span class="text-pantone7462C font-black text-xl tracking-tighter">EG</span>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-black tracking-tight leading-none">ECOGAS Hub 2026</h1>
+                    <p class="text-pantone2203C text-sm font-semibold opacity-90">Planificación + Inteligencia Artificial</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <button onclick="toggleAIChat()" class="bg-pantone368C hover:bg-green-500 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-md transition-all flex items-center gap-2">
+                    <span>✨</span> Asistente IA
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full space-y-12">
+
+        <section id="analytics" class="space-y-6">
+            <div>
+                <h2 class="text-2xl font-black text-pantone7462C flex items-center gap-2">
+                    <span class="text-pantone368C">▶</span> Panorama Estratégico
+                </h2>
+                <p class="text-slate-600 text-sm max-w-2xl mt-1">
+                    Análisis general de las 36 semanas del calendario editorial. Visualiza la concentración de esfuerzos por objetivo principal y la carga de tareas por responsable.
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="glass-panel rounded-2xl p-6 shadow-sm border-t-4 border-pantone2203C">
+                    <h3 class="text-lg font-bold text-slate-800 mb-2 text-center">Foco de KPIs</h3>
+                    <p class="text-xs text-slate-500 text-center mb-4">Distribución de metas (Conversión vs Alcance vs Engagement)</p>
+                    <div class="chart-container">
+                        <canvas id="kpiChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="glass-panel rounded-2xl p-6 shadow-sm border-t-4 border-pantone7462C">
+                    <h3 class="text-lg font-bold text-slate-800 mb-2 text-center">Distribución de Equipo</h3>
+                    <p class="text-xs text-slate-500 text-center mb-4">Semanas asignadas por responsable de contenido</p>
+                    <div class="chart-container">
+                        <canvas id="teamChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="calendar" class="space-y-6">
+            <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                <div>
+                    <h2 class="text-2xl font-black text-pantone7462C flex items-center gap-2">
+                        <span class="text-pantone368C">▶</span> Navegador Editorial Mensual
+                    </h2>
+                    <p class="text-slate-600 text-sm max-w-2xl mt-1">
+                        Selecciona un mes para ver las tácticas semanales. Utiliza las herramientas de IA integradas para generar ideas de copys o mejorar la estrategia del mes seleccionado.
+                    </p>
+                </div>
+                <button onclick="optimizeCurrentMonth()" class="bg-pantone2203C hover:bg-pantone7462C text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md transition-colors flex items-center gap-2 whitespace-nowrap">
+                    <span>💡</span> Optimizar Mes con IA
+                </button>
+            </div>
+            
+            <div class="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+                <div class="bg-slate-50 border-b border-slate-200 p-2 md:p-4">
+                    <div class="flex overflow-x-auto scrollbar-hide space-x-2 py-1" id="month-tabs">
+                    </div>
+                </div>
+
+                <div class="p-5 md:p-8">
+                    <div class="mb-8 bg-slate-50 rounded-xl p-5 md:p-6 border-l-4 border-pantone368C flex flex-col md:flex-row md:justify-between gap-4">
+                        <div>
+                            <span class="text-xs font-black uppercase tracking-widest text-pantone368C mb-1 block">Tema Macro</span>
+                            <h3 id="display-theme" class="text-2xl md:text-3xl font-black text-pantone7462C">Cargando...</h3>
+                        </div>
+                        <div class="md:text-right border-t md:border-t-0 md:border-l border-slate-200 pt-4 md:pt-0 md:pl-6">
+                            <span class="text-xs font-black uppercase tracking-widest text-slate-400 mb-1 block">Objetivo</span>
+                            <p id="display-objective" class="text-lg font-medium text-slate-700 italic">Cargando...</p>
+                        </div>
+                    </div>
+
+                    <div id="weeks-grid" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="team" class="space-y-6">
+            <div>
+                <h2 class="text-2xl font-black text-pantone7462C flex items-center gap-2">
+                    <span class="text-pantone368C">▶</span> Guías de Ejecución
+                </h2>
+                <p class="text-slate-600 text-sm max-w-2xl mt-1">Directrices transversales para mantener la coherencia de marca por plataforma.</p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-white rounded-xl shadow-sm p-6 border-t-4 border-blue-600">
+                    <h3 class="font-black text-lg text-slate-800">Laura Torres</h3>
+                    <p class="text-xs font-bold text-blue-600 uppercase tracking-widest mb-4">Facebook & X</p>
+                    <ul class="text-sm text-slate-600 space-y-2">
+                        <li>▪️ Informativos rápidos y al grano.</li>
+                        <li>▪️ Links directos al sitio web.</li>
+                    </ul>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow-sm p-6 border-t-4 border-pink-500">
+                    <h3 class="font-black text-lg text-slate-800">Alejandro González</h3>
+                    <p class="text-xs font-bold text-pink-500 uppercase tracking-widest mb-4">TikTok & Instagram</p>
+                    <ul class="text-sm text-slate-600 space-y-2">
+                        <li>▪️ Prioridad a visuales dinámicos (Reels).</li>
+                        <li>▪️ Cuidar estética del feed (Carruseles).</li>
+                    </ul>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm p-6 border-t-4 border-sky-600">
+                    <h3 class="font-black text-lg text-slate-800">Nancy Ugarte</h3>
+                    <p class="text-xs font-bold text-sky-600 uppercase tracking-widest mb-4">LinkedIn</p>
+                    <ul class="text-sm text-slate-600 space-y-2">
+                        <li>▪️ Enfoque profesional y B2B.</li>
+                        <li>▪️ Contenido educativo del sector.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <div id="ai-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-white w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="bg-pantone7462C p-5 flex justify-between items-center text-white">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">✨</span>
+                    <h3 id="modal-title" class="font-bold text-lg">Respuesta de Gemini IA</h3>
+                </div>
+                <button onclick="closeModal()" class="text-white/70 hover:text-white text-3xl leading-none">&times;</button>
+            </div>
+            
+            <div id="modal-loading" class="p-12 flex flex-col items-center justify-center hidden">
+                <div class="w-12 h-12 border-4 border-pantone2203C border-t-transparent rounded-full animate-spin"></div>
+                <p class="mt-4 text-slate-500 font-medium">Analizando y generando contenido...</p>
+            </div>
+
+            <div id="modal-content" class="p-6 md:p-8 overflow-y-auto markdown-content text-slate-700 leading-relaxed text-sm md:text-base hidden">
+            </div>
+
+            <div class="p-4 bg-slate-50 border-t border-slate-200 flex justify-end">
+                <button onclick="closeModal()" class="bg-slate-200 hover:bg-slate-300 text-slate-800 px-6 py-2 rounded-lg font-bold transition-colors">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="ai-chat-panel" class="fixed right-0 top-0 h-full w-full md:w-96 bg-white shadow-2xl z-50 transform translate-x-full transition-transform duration-300 flex flex-col border-l border-slate-200">
+        <div class="bg-pantone368C p-5 flex justify-between items-center text-white">
+            <div class="flex items-center gap-2">
+                <span class="text-xl">💬</span>
+                <h3 class="font-bold">Asistente de Crisis / FAQ</h3>
+            </div>
+            <button onclick="toggleAIChat()" class="text-white/80 hover:text-white text-3xl leading-none">&times;</button>
+        </div>
+        
+        <div id="chat-history" class="flex-grow overflow-y-auto p-4 space-y-4 bg-slate-50">
+            <div class="bg-white p-3 rounded-xl rounded-tl-none shadow-sm border border-slate-200 text-sm text-slate-700 w-11/12">
+                Hola, soy la IA de ECOGAS. Puedo ayudarte a redactar respuestas para clientes molestos, explicar detalles técnicos de instalación o darte ideas de manejo de crisis. ¿Qué necesitas?
+            </div>
+        </div>
+
+        <div class="p-4 bg-white border-t border-slate-200">
+            <div class="flex gap-2">
+                <input type="text" id="chat-input" placeholder="Ej: ¿Cómo respondo a una queja por retraso?" class="flex-grow border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pantone2203C" onkeypress="handleChatEnter(event)">
+                <button onclick="sendChatMessage()" class="bg-pantone7462C hover:bg-pantone2203C text-white p-2 w-10 h-10 rounded-lg flex items-center justify-center transition-colors">
+                    ➤
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-slate-900 text-slate-400 py-8 border-t-8 border-pantone368C mt-12">
+        <div class="max-w-7xl mx-auto px-4 text-center text-xs">
+            <p>© 2026 ECOGAS. Herramienta de planificación estratégica con integración de IA Generativa.</p>
+        </div>
+    </footer>
+
+    <script>
+        const apiKey = "";
+        
+        const calendarData = [
+            { id: 'abril', name: 'Abril', theme: 'Confianza y Seguridad', objective: 'Reducir miedo y objeción inicial',
+              weeks: [
+                { w: 1, topic: 'Mitos y realidades del gas natural', platforms: 'FB / X / IG / TT / LI', owner: 'Equipo', kpi: 'Engagement / Alcance' },
+                { w: 2, topic: '¿Es seguro el gas natural en casa?', platforms: 'FB / X / IG / TT / LI', owner: 'Equipo', kpi: 'Guardados / Compartidos' },
+                { w: 3, topic: '¿Quién instala y cómo lo hace ECOGAS?', platforms: 'FB / X / IG / TT / LI', owner: 'Equipo', kpi: 'Clicks al perfil' },
+                { w: 4, topic: 'Facebook Live: Seguridad básica', platforms: 'Facebook', owner: 'Laura Torres', kpi: 'Visualizaciones en vivo' }
+              ]
+            },
+            { id: 'mayo', name: 'Mayo', theme: 'Proceso Claro', objective: 'Mostrar que instalar es sencillo',
+              weeks: [
+                { w: 1, topic: 'Instalación en 3 pasos', platforms: 'FB / X / IG / TT / LI', owner: 'Equipo', kpi: 'Leads (Consultas)' },
+                { w: 2, topic: 'Qué incluye tu instalación ECOGAS', platforms: 'FB / X / IG / TT / LI', owner: 'Equipo', kpi: 'Tiempo de permanencia' },
+                { w: 3, topic: 'Cuánto tiempo tarda la instalación', platforms: 'FB / X / IG / TT / LI', owner: 'Equipo', kpi: 'Comentarios' },
+                { w: 4, topic: 'Testimonio real por ciudad', platforms: 'FB / IG / TT', owner: 'Alejandro/Laura', kpi: 'Reproducciones' }
+              ]
+            },
+            { id: 'junio', name: 'Junio', theme: 'Ahorro y Control', objective: 'Llevar a consideración',
+              weeks: [
+                { w: 1, topic: 'Errores que elevan tu consumo', platforms: 'FB / X / IG / TT / LI', owner: 'Equipo', kpi: 'Guardados' },
+                { w: 2, topic: 'Cómo ahorrar desde el primer mes', platforms: 'FB / X / IG / TT / LI', owner: 'Equipo', kpi: 'Compartidos' },
+                { w: 3, topic: 'Comparativo energético (educativo)', platforms: 'FB / X / IG / TT / LI', owner: 'Equipo', kpi: 'Clicks al sitio web' },
+                { w: 4, topic: 'Carrusel: Tips ECOGAS', platforms: 'Instagram', owner: 'Alejandro G.', kpi: 'Alcance' }
+              ]
+            },
+            { id: 'julio', name: 'Julio', theme: 'Instalar sin Complicaciones', objective: 'Instalaciones nuevas',
+              weeks: [
+                { w: 1, topic: 'Antes / después de instalación', platforms: 'FB / IG / TT', owner: 'Alejandro G.', kpi: 'Interacciones' },
+                { w: 2, topic: '¿Tu casa está lista para gas?', platforms: 'FB / X / LI', owner: 'Laura/Nancy', kpi: 'Leads (Inbox)' },
+                { w: 3, topic: 'Video con técnico ECOGAS', platforms: 'FB / IG / TT', owner: 'Alejandro G.', kpi: 'Confianza (Sentiment)' },
+                { w: 4, topic: 'Live: Pregúntale al experto', platforms: 'FB / IG', owner: 'Alejandro/Laura', kpi: 'Participación' }
+              ]
+            },
+            { id: 'agosto', name: 'Agosto', theme: 'Migración Inteligente', objective: 'Cambio de energía',
+              weeks: [
+                { w: 1, topic: 'Ventajas de migrar a gas natural', platforms: 'FB / X / IG / TT / LI', owner: 'Equipo', kpi: 'CTR' },
+                { w: 2, topic: '¿Vale la pena cambiarte?', platforms: 'FB / X / IG / TT / LI', owner: 'Equipo', kpi: 'Reacciones' },
+                { w: 3, topic: 'Caso real de migración', platforms: 'FB / IG / TT', owner: 'Alejandro G.', kpi: 'Reproducciones 100%' },
+                { w: 4, topic: 'Q&A Stories', platforms: 'IG / FB', owner: 'Alejandro G.', kpi: 'Respuestas (Stickers)' }
+              ]
+            },
+            { id: 'septiembre', name: 'Septiembre', theme: 'Preparación para Temporada Alta', objective: 'Anticipación',
+              weeks: [
+                { w: 1, topic: 'Checklist antes del frío', platforms: 'FB / X / IG / TT / LI', owner: 'Equipo', kpi: 'Descargas / Guardados' },
+                { w: 2, topic: 'Mantenimiento preventivo', platforms: 'FB / X / IG / TT / LI', owner: 'Equipo', kpi: 'Mensajes directos' },
+                { w: 3, topic: 'Video educativo corto', platforms: 'IG / TT', owner: 'Alejandro G.', kpi: 'Shares' },
+                { w: 4, topic: 'Carrusel: Seguridad', platforms: 'FB / IG', owner: 'Alejandro/Laura', kpi: 'Alcance' }
+              ]
+            },
+            { id: 'octubre', name: 'Octubre', theme: 'Temporada Segura', objective: 'Escalar demanda',
+              weeks: [
+                { w: 1, topic: 'Seguridad en temporada fresca', platforms: 'FB / X / IG / TT / LI', owner: 'Equipo', kpi: 'Interacciones' },
+                { w: 2, topic: 'Testimonio familiar', platforms: 'FB / IG / TT', owner: 'Alejandro G.', kpi: 'Reproducciones' },
+                { w: 3, topic: 'Lo que revisamos en tu instalación', platforms: 'FB / X / LI', owner: 'Laura/Nancy', kpi: 'Leads' },
+                { w: 4, topic: 'Live: Uso seguro', platforms: 'FB / IG', owner: 'Alejandro/Laura', kpi: 'Seguidores nuevos' }
+              ]
+            },
+            { id: 'noviembre', name: 'Noviembre', theme: 'Uso Intensivo sin Riesgos', objective: 'Retención + valor',
+              weeks: [
+                { w: 1, topic: 'Errores comunes en invierno', platforms: 'FB / X / IG / TT / LI', owner: 'Equipo', kpi: 'Guardados' },
+                { w: 2, topic: 'Tips de uso eficiente', platforms: 'FB / X / IG / TT / LI', owner: 'Equipo', kpi: 'Compartidos' },
+                { w: 3, topic: 'Reels: Tranquilidad en casa', platforms: 'IG / TT', owner: 'Alejandro G.', kpi: 'Alcance' },
+                { w: 4, topic: 'Stories de recordatorio', platforms: 'FB / IG', owner: 'Alejandro G.', kpi: 'Tasa de apertura' }
+              ]
+            },
+            { id: 'diciembre', name: 'Diciembre', theme: 'Cierre de Año Seguro', objective: 'Marca + confianza',
+              weeks: [
+                { w: 1, topic: 'Tu hogar en buenas manos', platforms: 'FB / X / IG / TT / LI', owner: 'Equipo', kpi: 'Sentiment positivo' },
+                { w: 2, topic: 'Agradecimiento comunidad', platforms: 'FB / X / IG / TT / LI', owner: 'Equipo', kpi: 'Comentarios' },
+                { w: 3, topic: 'Recap del año', platforms: 'FB / X / IG / TT / LI', owner: 'Equipo', kpi: 'Reproducciones' },
+                { w: 4, topic: 'Planeación 2027 (soft)', platforms: 'FB / X / IG / TT / LI', owner: 'Equipo', kpi: 'Clicks al perfil' }
+              ]
+            }
+        ];
+
+        let activeMonthId = 'abril';
+
+        // --- GEMINI API LOGIC ---
+        async function fetchGemini(prompt, system) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                systemInstruction: { parts: [{ text: system }] }
+            };
+
+            let retries = 5;
+            let delay = 1000;
+
+            while (retries > 0) {
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+                    
+                    const data = await response.json();
+                    return data.candidates?.[0]?.content?.parts?.[0]?.text || "Respuesta vacía de la API.";
+                } catch (error) {
+                    retries--;
+                    if (retries === 0) return "Error de conexión con IA. Por favor, intenta de nuevo.";
+                    await new Promise(r => setTimeout(r, delay));
+                    delay *= 2;
+                }
+            }
+        }
+
+        function formatMarkdown(text) {
+            let formatted = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            formatted = formatted.replace(/\n\n/g, '</p><p>');
+            formatted = formatted.replace(/\n/g, '<br>');
+            formatted = formatted.replace(/\* (.*?)(<br>|$)/g, '<ul><li>$1</li></ul>');
+            formatted = formatted.replace(/<\/ul><ul>/g, ''); 
+            return `<p>${formatted}</p>`;
+        }
+
+        async function generateWeekCopy(topic, platforms, kpi) {
+            openModal(`Copy para: ${topic}`);
+            const sys = "Eres un copywriter experto en redes sociales para ECOGAS, empresa de gas natural. Escribe textos persuasivos, seguros y empáticos.";
+            const prompt = `Genera 2 opciones cortas de texto para redes sociales enfocadas en el tema: "${topic}". Debe publicarse en: ${platforms}. El objetivo es maximizar este KPI: ${kpi}. Incluye hashtags relevantes y emojis.`;
+            
+            const response = await fetchGemini(prompt, sys);
+            showModalContent(formatMarkdown(response));
+        }
+
+        async function optimizeCurrentMonth() {
+            const m = calendarData.find(x => x.id === activeMonthId);
+            openModal(`Optimizando: ${m.name}`);
+            const sys = "Eres el Director de Estrategia Digital de ECOGAS. Eres analítico y creativo.";
+            const prompt = `Analiza nuestro plan mensual. Tema: "${m.theme}". Objetivo: "${m.objective}". \nSugiere 3 tácticas creativas adicionales o formatos innovadores para asegurar que cumplamos el objetivo. Sé conciso y directo.`;
+            
+            const response = await fetchGemini(prompt, sys);
+            showModalContent(formatMarkdown(response));
+        }
+
+        async function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const msg = input.value.trim();
+            if(!msg) return;
+
+            const chat = document.getElementById('chat-history');
+            chat.innerHTML += `<div class="bg-pantone7462C text-white p-3 rounded-xl rounded-tr-none shadow-sm text-sm self-end w-11/12 ml-auto">${msg}</div>`;
+            input.value = '';
+            chat.scrollTop = chat.scrollHeight;
+
+            const sys = "Eres un Asistente FAQ para el Community Manager de ECOGAS. Respondes brevemente con el protocolo adecuado para responder dudas de usuarios sobre gas natural, seguridad, tarifas o quejas.";
+            const prompt = `El usuario/cliente pregunta o comenta lo siguiente en redes sociales: "${msg}". ¿Cómo debería responder el Community Manager? Escribe solo la sugerencia de respuesta directa.`;
+            
+            const response = await fetchGemini(prompt, sys);
+            chat.innerHTML += `<div class="bg-white p-3 rounded-xl rounded-tl-none shadow-sm border border-slate-200 text-sm text-slate-700 w-11/12"><strong>IA:</strong> ${formatMarkdown(response)}</div>`;
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        function handleChatEnter(e) { if(e.key === 'Enter') sendChatMessage(); }
+
+        // --- UI LOGIC ---
+        function initApp() {
+            renderTabs();
+            renderMonth(activeMonthId);
+            renderCharts();
+        }
+
+        function renderTabs() {
+            const container = document.getElementById('month-tabs');
+            container.innerHTML = '';
+            calendarData.forEach(m => {
+                const btn = document.createElement('button');
+                btn.innerText = m.name;
+                const activeClasses = m.id === activeMonthId ? 'bg-pantone7462C text-white shadow-md' : 'bg-white text-slate-600 border border-slate-200 hover:border-pantone2203C';
+                btn.className = `px-5 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap outline-none ${activeClasses}`;
+                btn.onclick = () => { activeMonthId = m.id; renderTabs(); renderMonth(m.id); };
+                container.appendChild(btn);
+            });
+        }
+
+        function renderMonth(id) {
+            const data = calendarData.find(x => x.id === id);
+            document.getElementById('display-theme').innerText = data.theme;
+            document.getElementById('display-objective').innerText = data.objective;
+            
+            const grid = document.getElementById('weeks-grid');
+            grid.innerHTML = '';
+
+            data.weeks.forEach(w => {
+                const card = document.createElement('div');
+                card.className = "bg-white border border-slate-100 p-5 rounded-xl flex flex-col justify-between gap-4 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group";
+                card.innerHTML = `
+                    <div class="absolute top-0 right-0 w-2 h-full bg-pantone2203C opacity-20 group-hover:opacity-100 transition-opacity"></div>
+                    <div>
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="bg-slate-100 text-slate-600 text-[10px] font-black uppercase px-2 py-1 rounded">Semana ${w.w}</span>
+                            <span class="text-[10px] text-slate-400 font-bold bg-slate-50 border px-1 rounded truncate max-w-[100px]" title="${w.platforms}">${w.platforms}</span>
+                        </div>
+                        <h4 class="text-lg font-bold text-pantone7462C leading-tight mb-3">${w.topic}</h4>
+                        <div class="text-xs text-slate-500 space-y-1">
+                            <p>👤 <span class="font-semibold text-slate-700">${w.owner}</span></p>
+                            <p>🎯 <span class="font-semibold text-slate-700">${w.kpi}</span></p>
+                        </div>
+                    </div>
+                    <button onclick="generateWeekCopy('${w.topic}', '${w.platforms}', '${w.kpi}')" class="mt-2 text-center w-full bg-pantone368C/10 hover:bg-pantone368C text-pantone368C hover:text-white border border-pantone368C/30 text-xs font-bold py-2 rounded-lg transition-colors flex justify-center items-center gap-1">
+                        <span>✨</span> Generar Copy
+                    </button>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function renderCharts() {
+            const kpiCategories = { 'Conversión/Leads': 0, 'Awareness/Alcance': 0, 'Engagement': 0 };
+            const teamCounts = { 'Laura T.': 0, 'Alejandro G.': 0, 'Nancy U.': 0, 'Equipo Completo': 0 };
+
+            calendarData.forEach(m => {
+                m.weeks.forEach(w => {
+                    const k = w.kpi.toLowerCase();
+                    if(k.includes('lead') || k.includes('click') || k.includes('ctr') || k.includes('descarga')) kpiCategories['Conversión/Leads']++;
+                    else if(k.includes('reproduccion') || k.includes('alcance') || k.includes('visualizacion')) kpiCategories['Awareness/Alcance']++;
+                    else kpiCategories['Engagement']++;
+
+                    if(w.owner.includes('Laura') && !w.owner.includes('Alejandro') && !w.owner.includes('Nancy')) teamCounts['Laura T.']++;
+                    else if(w.owner.includes('Alejandro') && !w.owner.includes('Laura')) teamCounts['Alejandro G.']++;
+                    else if(w.owner.includes('Nancy') && !w.owner.includes('Laura')) teamCounts['Nancy U.']++;
+                    else teamCounts['Equipo Completo']++;
+                });
+            });
+
+            new Chart(document.getElementById('kpiChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(kpiCategories),
+                    datasets: [{ data: Object.values(kpiCategories), backgroundColor: ['#008BB0', '#005596', '#7AC142'], borderWidth: 3, borderColor: '#fff' }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { position: 'bottom', labels: { font: { family: 'Inter', size: 11 } } } } }
+            });
+
+            new Chart(document.getElementById('teamChart'), {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(teamCounts),
+                    datasets: [{ data: Object.values(teamCounts), backgroundColor: '#005596', borderRadius: 4 }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { grid: { display: false }, ticks: { font: { family: 'Inter', size: 10 } } } } }
+            });
+        }
+
+        // --- MODAL CONTROLS ---
+        function openModal(title) {
+            document.getElementById('ai-modal').classList.remove('hidden');
+            document.getElementById('ai-modal').classList.add('flex');
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-loading').classList.remove('hidden');
+            document.getElementById('modal-content').classList.add('hidden');
+        }
+
+        function showModalContent(html) {
+            document.getElementById('modal-loading').classList.add('hidden');
+            document.getElementById('modal-content').classList.remove('hidden');
+            document.getElementById('modal-content').innerHTML = html;
+        }
+
+        function closeModal() {
+            document.getElementById('ai-modal').classList.add('hidden');
+            document.getElementById('ai-modal').classList.remove('flex');
+        }
+
+        function toggleAIChat() {
+            const panel = document.getElementById('ai-chat-panel');
+            panel.classList.toggle('translate-x-full');
+        }
+
+        document.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
